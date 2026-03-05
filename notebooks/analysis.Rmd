@@ -86,6 +86,7 @@ budget data.
 ```{r load-libraries}
 library(tidyverse)
 library(knitr)
+library(scales)
 ```
 
 ## Load Data
@@ -108,5 +109,19 @@ glimpse(shows)
 ```{r check-missing}
 colSums(is.na(movies))
 colSums(is.na(shows))
+```
+
+## Parse Runtime to Minutes
+
+The `runtime` column is stored as a string (e.g., `"1H 54M"`). We convert it to numeric minutes for analysis.
+
+```{r parse-runtime}
+parse_runtime_minutes <- function(runtime_str) {
+ hours   <- as.numeric(str_extract(runtime_str, "(?<=^|\\s)(\\d+)(?=H)"))
+ minutes <- as.numeric(str_extract(runtime_str, "(\\d+)(?=M)"))
+ hours   <- replace_na(hours, 0)
+ minutes <- replace_na(minutes, 0)
+ hours * 60 + minutes
+}
 ```
 
