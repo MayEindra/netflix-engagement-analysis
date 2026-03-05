@@ -1,0 +1,112 @@
+---
+title: "Netflix Engagement Report: A Case Study"
+author: "May Eindra Tet Toe"
+output:
+  pdf_document:
+    toc: true
+    toc_depth: 2
+    number_sections: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE,
+                      fig.align = "center", out.width = "85%")
+```
+
+---
+
+# Summary
+
+Insert summary here
+
+**Key findings:**
+
+---
+
+# Introduction
+
+Netflix publishes a bi-annual engagement report disclosing viewership data 
+for its titles. This transparency gives analysts a rare look into what audiences 
+actually watch — not just what is trending. The dataset is sourced from 
+TidyTuesday (July 2025), and it includes view counts and hours viewed for movies and shows, 
+along with release dates, runtimes, and global availability flags.
+
+This analysis follows the six phases of the data analysis process:
+ **Ask, Prepare, Process, Analyze, Share, and Act.**
+
+---
+
+# Ask: Business Task
+
+**Central question:** What patterns in Netflix's 2025 engagement data can help explain content performance, and what do those patterns suggest about audience behavior?
+
+Supporting questions:
+
+1. Which titles drove the most engagement by hours viewed?
+2. How do Movies and TV Shows compare in total viewership?
+3. Does global availability significantly impact view counts and hours?
+4. Is there a relationship between content runtime and engagement?
+5. What release timing patterns are associated with higher viewership?
+
+---
+
+# Prepare: Data Source
+
+The data comes from Netflix's official engagement report, compiled by the
+ [TidyTuesday project](https://github.com/rfordatascience/tidytuesday/tree/main/data/2025/2025-07-29).
+
+| File | Description |
+|------|-------------|
+| `movies.csv` | Netflix movie titles with viewership metrics |
+| `shows.csv` | Netflix TV show titles with viewership metrics |
+
+**Columns (both files):**
+
+| Column | Description |
+|--------|-------------|
+| `source` | Source file name |
+| `report` | Report period |
+| `title` | Movie/Show title |
+| `available_globally` | Whether the show/movie is available globally or not |
+| `release_date` | Date the show/movie was released on Netflix |
+| `hours_viewed` | Total hours viewed on the show/movie |
+| `runtime` | Content runtime |
+| `views` | Total number of hours viewed |
+
+**Limitations:** The report covers only Jan–Jun 2025 and excludes titles that did not 
+reach a minimum viewership threshold. It does not include genre, language, or production 
+budget data.
+
+---
+
+# Process: Data Cleaning & Preparation
+
+## Load Libraries
+
+```{r load-libraries}
+library(tidyverse)
+library(knitr)
+```
+
+## Load Data
+
+```{r load-data}
+movies <- readr::read_csv(
+  'https://raw.githubusercontent.com/rfordatascience/tidytuesday/main/data/2025/2025-07-29/movies.csv')
+
+shows <- readr::read_csv(
+  'https://raw.githubusercontent.com/rfordatascience/tidytuesday/main/data/2025/2025-07-29/shows.csv')
+```
+
+## Initial Inspection
+
+```{r inspect-data}
+glimpse(movies)
+glimpse(shows)
+```
+
+```{r check-missing}
+colSums(is.na(movies))
+colSums(is.na(shows))
+```
+
