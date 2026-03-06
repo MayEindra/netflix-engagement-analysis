@@ -117,11 +117,39 @@ The `runtime` column is stored as a string (e.g., `"1H 54M"`). We convert it to 
 
 ```{r parse-runtime}
 parse_runtime_minutes <- function(runtime_str) {
- hours   <- as.numeric(str_extract(runtime_str, "(?<=^|\\s)(\\d+)(?=H)"))
- minutes <- as.numeric(str_extract(runtime_str, "(\\d+)(?=M)"))
- hours   <- replace_na(hours, 0)
- minutes <- replace_na(minutes, 0)
- hours * 60 + minutes
-}
+    hours   <- as.numeric(str_extract(runtime_str, "(?<=^|\\s)(\\d+)(?=H)"))
+    minutes <- as.numeric(str_extract(runtime_str, "(\\d+)(?=M)"))
+    hours   <- replace_na(hours, 0)
+    minutes <- replace_na(minutes, 0)
+    hours * 60 + minutes
+    }
+```
+
+## Combine Datasets
+
+
+```{r combine-data}
+movies_clean <- movies |>
+mutate(
+    content_type    = "Movie",
+    runtime_minutes = parse_runtime_minutes(runtime),
+    release_date    = as.Date(release_date),
+    release_month   = month(release_date, label = TRUE, abbr = TRUE),
+    release_quarter = paste0("Q", quarter(release_date)),
+    global          = if_else(available_globally == "Yes", "Global", "Non-Global")
+    )
+
+
+shows_clean <- shows |>
+mutate(
+    content_type    = "TV Show",
+    runtime_minutes = parse_runtime_minutes(runtime),
+    release_date    = as.Date(release_date),
+    release_month   = month(release_date, label = TRUE, abbr = TRUE),
+    release_quarter = paste0("Q", quarter(release_date)),
+    global          = if_else(available_globally == "Yes", "Global", "Non-Global")
+    )
+
+all_content <- bind_rows(movies_clean, shows_clean)
 ```
 
