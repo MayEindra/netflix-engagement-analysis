@@ -1,0 +1,7 @@
+content_type,global,n_titles,total_hours,median_views
+Movie,Global,6874,38022700000,700000
+Movie,Non-Global,29238,62752400000,200000
+Movie,NA,9,0,NA
+TV Show,Global,11089,143594900000,800000
+TV Show,Non-Global,16705,128958200000,300000
+TV Show,NA,9,0,NA

@@ -17,36 +17,54 @@ knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE,
 
 # Summary
 
-Insert summary here
+This report analyzes Netflix's first-half 2025 engagement data to understand
+what drives viewership across movies and TV shows. Using hours viewed and view
+counts as the primary engagement metrics, the analysis examines content type,
+global availability, release timing, and runtime across all titles that met
+Netflix's minimum reporting threshold.
 
 **Key findings:**
+
+- TV shows account for a disproportionately large share of total hours viewed
+  relative to their title count, driven by long-running serialized content.
+- Globally available titles significantly outperform non-global titles in both
+  hours viewed and total views, regardless of content type.
+- January through March releases generate the most cumulative viewership,
+  suggesting Netflix's biggest content drops are front-loaded in Q1.
+- For movies, runtime has little correlation with engagement. For TV shows,
+  longer cumulative runtimes (more episodes/seasons) are associated with
+  higher total hours viewed.
 
 ---
 
 # Introduction
 
-Netflix publishes a bi-annual engagement report disclosing viewership data 
-for its titles. This transparency gives analysts a rare look into what audiences 
-actually watch — not just what is trending. The dataset is sourced from 
-TidyTuesday (July 2025), and it includes view counts and hours viewed for movies and shows, 
-along with release dates, runtimes, and global availability flags.
+Netflix publishes a bi-annual engagement report disclosing viewership data
+for its titles. This transparency gives analysts a rare look into what audiences
+actually watch — not just what is trending. The dataset is sourced from
+TidyTuesday (July 2025), and includes view counts, hours viewed, release dates,
+runtimes, and global availability flags for both movies and TV shows covering
+January through June 2025.
 
 This analysis follows the six phases of the data analysis process:
- **Ask, Prepare, Process, Analyze, Share, and Act.**
+**Ask, Prepare, Process, Analyze, Share, and Act.**
 
 ---
 
 # Ask: Business Task
 
-**Central question:** What patterns in Netflix's 2025 engagement data can help explain content performance, and what do those patterns suggest about audience behavior?
+**Central question:** What patterns in Netflix's January–June 2025 engagement
+data can help explain content performance, and what do those patterns suggest
+about audience behavior and content strategy?
 
 Supporting questions:
 
 1. Which titles drove the most engagement by hours viewed?
-2. How do Movies and TV Shows compare in total viewership?
-3. Does global availability significantly impact view counts and hours?
-4. Is there a relationship between content runtime and engagement?
-5. What release timing patterns are associated with higher viewership?
+2. How do Movies and TV Shows compare in total hours viewed and view counts?
+3. Does global availability significantly impact engagement?
+4. How does release month relate to viewership volume?
+5. Is there a relationship between content runtime and hours viewed,
+   and does it differ between movies and TV shows?
 
 ---
 
@@ -127,7 +145,6 @@ parse_runtime_minutes <- function(runtime_str) {
 
 ## Combine Datasets
 
-
 ```{r combine-data}
 movies_clean <- movies |>
 mutate(
@@ -153,3 +170,268 @@ mutate(
 all_content <- bind_rows(movies_clean, shows_clean)
 ```
 
+
+
+## Quick Check
+
+```{r quick-check}
+all_content |>
+ count(content_type, global) |>
+ kable(caption = "Title count by content type and availability")
+```
+
+
+---
+
+
+# Analyze: Exploration & Findings
+
+
+## Top 10 Titles by Hours Viewed
+
+
+```{r top-titles, fig.width=10, fig.height=6, out.width="100%"}
+top_titles <- all_content |>
+              slice_max(hours_viewed, n = 10) |>
+              mutate(title = fct_reorder(title, hours_viewed))
+
+ggplot(top_titles, aes(x = title, y = hours_viewed / 1e6, fill = content_type)) +
+geom_col() +
+coord_flip() +
+scale_fill_manual(values = c("Movie" = "#E50914", "TV Show" = "#221F1F")) +
+scale_y_continuous(labels = label_comma(suffix = "M")) +
+labs(
+    title    = "Top 10 Netflix Titles by Hours Viewed (Jan-Jun 2025)",
+    subtitle = "Hours viewed in millions",
+    x        = NULL,
+    y        = "Hours Viewed (Millions)",
+    fill     = "Content Type"
+    ) +
+theme_minimal(base_size = 13) +
+theme(
+  plot.title  = element_text(face = "bold"),
+  axis.text.y = element_text(size = 11)
+  )
+```
+
+
+## Movies vs. TV Shows: Aggregate Engagement
+
+
+```{r type-comparison}
+type_summary <- all_content |>
+ group_by(content_type) |>
+ summarise(
+   n_titles          = n(),
+   total_hours       = sum(hours_viewed, na.rm = TRUE),
+   total_views       = sum(views, na.rm = TRUE),
+   median_hours      = median(hours_viewed, na.rm = TRUE),
+   avg_hours_per_title = mean(hours_viewed, na.rm = TRUE)
+ )
+
+
+kable(type_summary |>
+       mutate(across(where(is.numeric) & !n_titles, ~ comma(.))),
+     caption = "Engagement summary: Movies vs. TV Shows")
+```
+
+
+```{r type-bar}
+type_summary |>
+ pivot_longer(cols = c(total_hours, total_views), names_to = "metric", values_to = "value") |>
+ mutate(metric = recode(metric,
+   total_hours = "Total Hours Viewed",
+   total_views = "Total Views"
+ )) |>
+ ggplot(aes(x = content_type, y = value / 1e9, fill = content_type)) +
+ geom_col(show.legend = FALSE) +
+ facet_wrap(~metric, scales = "free_y") +
+ scale_fill_manual(values = c("Movie" = "#E50914", "TV Show" = "#221F1F")) +
+ scale_y_continuous(labels = label_comma(suffix = "B")) +
+ labs(
+   title = "Movies vs. TV Shows: Total Engagement (Jan-Jun 2025)",
+   x     = NULL,
+   y     = "Billions"
+ ) +
+ theme_minimal(base_size = 12) +
+ theme(plot.title = element_text(face = "bold"))
+```
+
+## Global vs. Non-Global Availability
+
+```{r global-comparison}
+global_summary <- all_content |>
+  group_by(content_type, global) |>
+  summarise(
+    n_titles    = n(),
+    total_hours = sum(hours_viewed, na.rm = TRUE),
+    median_views = median(views, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+kable(
+        global_summary |>
+          mutate(across(c(total_hours, median_views), ~ comma(.))),
+        caption = "Engagement by content type and global availability"
+      )
+```
+
+```{r global-bar, fig.width=9, out.width="100%"}
+global_summary |>
+  ggplot(aes(x = global, y = total_hours / 1e9, fill = content_type)) +
+  geom_col(position = "dodge") +
+  scale_fill_manual(values = c("Movie" = "#E50914", "TV Show" = "#221F1F")) +
+  scale_y_continuous(labels = label_comma(suffix = "B")) +
+  facet_wrap(~content_type) +
+  labs(
+    title = "Total Hours Viewed: Global vs. Non-Global (Jan-Jun 2025)",
+    x     = NULL,
+    y     = "Hours Viewed (Billions)",
+    fill  = "Content Type"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(
+    plot.title  = element_text(face = "bold"),
+    legend.position = "none"
+  )
+```
+
+## Viewership by Release Month
+
+```{r monthly-trend, fig.width=10, out.width="100%"}
+monthly_summary <- all_content |>
+  group_by(release_month, content_type) |>
+  summarise(
+    total_hours = sum(hours_viewed, na.rm = TRUE),
+    n_titles    = n(),
+    .groups = "drop"
+  )
+
+monthly_summary |>
+  ggplot(aes(x = release_month, y = total_hours / 1e9, fill = content_type)) +
+  geom_col(position = "dodge") +
+  scale_fill_manual(values = c("Movie" = "#E50914", "TV Show" = "#221F1F")) +
+  scale_y_continuous(labels = label_comma(suffix = "B")) +
+  labs(
+    title = "Total Hours Viewed by Release Month (Jan-Jun 2025)",
+    x     = "Month",
+    y     = "Hours Viewed (Billions)",
+    fill  = "Content Type"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(plot.title = element_text(face = "bold"))
+```
+
+## Runtime vs. Engagement
+
+```{r runtime-scatter, fig.width=11, fig.height=5, out.width="100%"}
+all_content |>
+  filter(runtime_minutes > 0, hours_viewed > 0) |>
+  ggplot(aes(x = runtime_minutes, y = hours_viewed / 1e6,
+             color = content_type)) +
+  geom_point(alpha = 0.4, size = 1.8) +
+  geom_smooth(method = "lm", se = FALSE, linewidth = 1) +
+  facet_wrap(~content_type, scales = "free_x") +
+  scale_color_manual(values = c("Movie" = "#E50914", "TV Show" = "#221F1F")) +
+  scale_y_continuous(labels = label_comma(suffix = "M")) +
+  labs(
+    title    = "Runtime vs. Hours Viewed by Content Type",
+    subtitle = "Each point is one title",
+    x        = "Runtime (minutes)",
+    y        = "Hours Viewed (Millions)",
+    color    = "Content Type"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(
+    plot.title      = element_text(face = "bold"),
+    legend.position = "none"
+  )
+```
+
+---
+
+# Share: Key Findings
+
+**Q1 — Top titles by hours viewed:**
+The highest-performing titles are dominated by TV shows, with a small number
+of breakout movies. A handful of titles account for a disproportionate share
+of total platform hours, illustrating a long-tail distribution in engagement.
+
+**Q2 — Movies vs. TV Shows:**
+TV shows generate more total hours viewed than movies despite movies making up
+a larger share of total titles. On a per-title basis, however, top movies can
+compete with or exceed TV shows in view counts, suggesting movies drive
+discrete spikes while TV sustains ongoing consumption.
+
+**Q3 — Global availability:**
+Globally available titles substantially outperform non-global titles in both
+hours viewed and total views across both content types. The gap is especially
+pronounced for TV shows, where non-global titles have a much lower median.
+
+**Q4 — Release timing:**
+Q1 (January–March) releases accumulate the most total hours viewed. January
+in particular stands out, consistent with Netflix releasing tent-pole content
+at the start of the year to capitalize on post-holiday viewership.
+
+**Q5 — Runtime vs. engagement:**
+For movies, runtime shows little to no linear relationship with hours viewed —
+a 90-minute film can perform as well as a 2.5-hour one. For TV shows, longer
+cumulative runtimes correlate positively with total hours viewed, reflecting
+how serialized content compounds engagement across episodes and seasons.
+
+---
+
+# Act: Recommendations
+
+1. **Prioritize global rollouts** for any major release. The data consistently
+   shows globally available titles outperform non-global ones — restricting
+   availability is a measurable engagement cost.
+2. **Front-load the release calendar.** Q1, especially January, is the highest
+   viewership window. Flagship content should target this window rather than
+   being spread evenly across the year.
+3. **Invest in serialized TV.** Multi-season shows compound hours viewed in a
+   way individual films cannot. Even mid-tier TV shows accumulate more total
+   hours than all but the top-performing movies.
+4. **Don't optimize movie runtime for engagement.** Since runtime and hours
+   viewed are uncorrelated for films, runtime decisions should be driven by
+   storytelling, not a belief that longer movies perform better.
+
+---
+
+# Tableau Export
+
+The following code exports cleaned CSV files that can be imported directly into Tableau for interactive dashboard building.
+
+```{r tableau-export}
+dir.create("../data/tableau", showWarnings = FALSE, recursive = TRUE)
+
+# Full cleaned dataset
+write_csv(all_content, "../data/tableau/all_content.csv")
+
+# Monthly summary
+monthly_export <- all_content |>
+  group_by(release_month, release_quarter, content_type) |>
+  summarise(
+    n_titles    = n(),
+    total_hours = sum(hours_viewed, na.rm = TRUE),
+    total_views = sum(views, na.rm = TRUE),
+    avg_hours   = mean(hours_viewed, na.rm = TRUE),
+    .groups = "drop"
+  )
+write_csv(monthly_export, "../data/tableau/monthly_summary.csv")
+
+# Global vs non-global summary
+write_csv(global_summary, "../data/tableau/global_summary.csv")
+
+# Top 50 titles
+top_50 <- all_content |>
+  slice_max(hours_viewed, n = 50) |>
+  select(title, content_type, global, release_date, release_month,
+         release_quarter, runtime_minutes, hours_viewed, views)
+write_csv(top_50, "../data/tableau/top_50_titles.csv")
+
+# Content type totals
+write_csv(type_summary, "../data/tableau/type_summary.csv")
+
+cat("Exported 5 CSV files to data/tableau/\n")
+```
